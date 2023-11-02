@@ -1,0 +1,38 @@
+{
+  "name": "fastify-typescript",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "node": ">= 18.12 < 19"
+  },
+  "scripts": {
+    "start": "npx tsx index.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^8.1.0",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/csrf-protection": "^5.1.0",
+    "@fastify/multipart": "^7.4.0",
+    "@fastify/static": "^6.10.2",
+    "@fastify/type-provider-json-schema-to-ts": "^2.2.2",
+    "@ffmpeg.wasm/core-st": "^0.13.2",
+    "@ffmpeg.wasm/main": "^0.13.1",
+    "fastify": "^4.5.3",
+    "http-errors": "^2.0.0",
+    "joi": "17.6.4",
+    "join-images": "^1.1.5",
+    "sharp": "^0.32.6",
+    "superjson": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/http-errors": "^2.0.3",
+    "@types/node": "^18.7.14",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^3.14.0",
+    "typescript": "^4.8.2"
+  },
+  "keywords": [],
+  "description": ""
+}
+
