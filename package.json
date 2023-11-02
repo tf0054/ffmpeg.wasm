@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "engines": {
-    "node": ">= 18.12 < 19"
+    "node": ">= 18.12"
   },
   "scripts": {
     "start": "npx tsx index.ts"
@@ -35,4 +35,3 @@
   "keywords": [],
   "description": ""
 }
-
