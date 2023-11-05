@@ -43,30 +43,6 @@ fastify.register(fastifyMultipart, {
   },
 });
 
-fastify.get(
-  "/moz",
-  {
-    schema: {
-      querystring: {
-        type: "object",
-        properties: {
-          number: { type: "number" },
-        },
-        required: ["number"],
-      },
-    },
-    // validatorCompiler: ({ schema, method, url, httpPart }) => {
-    //   return (data) => {
-    //     const { success } = (schema as any).safeParse(data);
-    //     return success;
-    //   };
-    // },
-  },
-  function (req, reply) {
-    return req.params;
-  },
-);
-
 fastify.post(
   "/op/ffmpeg/video",
   {
@@ -97,7 +73,6 @@ fastify.post(
       // ],
     },
   },
-
   async (req: FastifyRequest<{ Body: BodyType }>, res) => {
     const _file = req.body.file as MultipartFile;
     if (!_file) throw new createError.BadRequest("No file found");
@@ -213,30 +188,27 @@ fastify.post(
     );
 
     console.debug("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
-    // console.debug("zipping started");
+
     let mergeTargets: Buffer[] = [];
     var outputs: { name: string; lastModified: any; input: any }[] = [];
     const zeroPad = (num: number, places: number) =>
       String(num).padStart(places, "0");
     try {
-      const occulObj = new Occul();
       for (let i = 1; i < 1000; i++) {
         const filename = `output_${zeroPad(i, 3)}.webp`;
-        const data = await ffmpeg.fs.readFile(filename);
+        const data = ffmpeg.fs.readFile(filename);
         const output = {
           name: `output_${zeroPad(i, 3)}.webp`,
           lastModified: new Date(),
           input: data,
         };
         fs.writeFileSync(`tmp/${folderName}/` + output.name, data);
+
         outputs.push(output);
         mergeTargets.push(Buffer.from(data));
-
-        const sharpness = await occulObj.analyze(structuredClone(data));
-        console.debug(`Added: ${filename} (${sharpness})`);
       }
     } catch (e) {
-      console.log(`Finished: ${outputs.length} ${e}`);
+      console.log(`Finished: ${outputs.length} ${JSON.stringify(e)}`);
     }
 
     if (outputs.length > 50) outputs = outputs.slice(0, 50);
@@ -272,11 +244,16 @@ fastify.post(
     }
     sString = sString.slice(0, -1);
 
+    const occulObj = new Occul();
+
     let outFiles: string[][] = [];
+    let occulResAry: Promise<number>[] = [];
     for (let i = 1; i < outputs.length; i++) {
       const filename = `output_${zeroPad(i, 3)}.webp`;
       let params = ["-i", filename];
       outFiles.push(params);
+
+      occulResAry.push(occulObj.analyze(structuredClone(outputs[i].input)));
     }
 
     let merged = outFiles.reduce(function (prev, next) {
@@ -289,6 +266,8 @@ fastify.post(
       `xstack=inputs=${outputs.length - 1}:layout=${sString},scale=${
         200 * xSize
       }:${200 * ySize}`,
+      // "-metadata",
+      // 'comment_project="TEST PROJECT"',
       "outputs.webp",
     ];
     // console.debug("params for grid creation", paramAry);
@@ -314,6 +293,13 @@ fastify.post(
       if (metadata.width && metadata.height) {
         const p = width / metadata.width;
         sharp(buff)
+          .withMetadata({
+            exif: {
+              IFD0: {
+                ImageDescription: "[123]",
+              },
+            },
+          })
           .resize(
             Math.round(p * metadata.width),
             Math.round(p * metadata.height),
@@ -323,6 +309,14 @@ fastify.post(
       }
     });
 
+    if (ffmpeg.exit("kill")) {
+      console.log("ffmpeg: killed");
+    }
+
+    Promise.all(occulResAry).then((v) => {
+      fs.writeFileSync(`tmp/${folderName}/sharpness.json`, JSON.stringify(v));
+    });
+
     let output = {
       name: `outputs.webp`,
       lastModified: new Date(),
@@ -330,7 +324,21 @@ fastify.post(
     };
     outputs.push(output);
 
-    res.send(superjson.stringify(outputs));
+    const resJson = { id: folderName, photos: outputs };
+
+    res.send(superjson.stringify(resJson));
+  },
+);
+
+fastify.get(
+  "/op/ffmpeg/video/sharpness/:folderId",
+  {
+    schema: {},
+  },
+  function (req, reply) {
+    const { folderId } = req.params;
+    const content = fs.readFileSync(`tmp/${folderId}/sharpness.json`);
+    reply.send(content);
   },
 );
 
@@ -343,4 +351,3 @@ fastify.listen({ port: 3000 }, function (err, address) {
   }
   // Server is now listening on ${address}
 });
-
