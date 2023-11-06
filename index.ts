@@ -183,7 +183,8 @@ fastify.post(
       "libwebp",
       "-filter_complex",
       `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
-        `[0]fps=10,crop=${req.body.crop.value}[vm];` +
+        // `[0]fps=10,crop=${req.body.crop.value}[vm];` +
+        `[0]trim=start=00:00:00.00:end=00:00:01.80,fps=10,crop=${req.body.crop.value}[vm];` +
         `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
       // `,drawtext=:text='oneshot.tokyo': fontcolor=white@0.5: fontsize=18: x=w-tw-10:y=h-th-10`,
       "-lossless",
