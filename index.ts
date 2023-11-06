@@ -149,14 +149,18 @@ fastify.post(
     const folderName = new Date().toISOString();
     fs.mkdirSync(`tmp/${folderName}`);
 
-    console.log("crop", req.body.crop);
+    // console.log("crop", req.body.crop);
     fs.writeFileSync(
       `tmp/${folderName}/${"crop.txt"}`,
       JSON.stringify(req.body.crop.value),
     );
 
-    // Wrote
+    // Write the video on ffpmeg world
     ffmpeg.fs.writeFile(_file.filename, buf);
+
+    // Write the logo on ffpmeg world
+    const logoFilename = "logo.png";
+    ffmpeg.fs.writeFile(logoFilename, fs.readFileSync(logoFilename));
     console.debug("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
     // Processed
 
@@ -175,12 +179,19 @@ fastify.post(
     await ffmpeg.run(
       "-i",
       _file.filename,
+      "-i",
+      logoFilename,
       "-vsync",
       "vfr",
       "-c:v",
       "libwebp",
-      "-filter:v",
-      `fps=10,crop=${req.body.crop.value}`,
+      "-filter_complex",
+      `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
+        `[0]fps=10,crop=${req.body.crop.value}[vm];` +
+        `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
+      // `,drawtext=:text='oneshot.tokyo': fontcolor=white@0.5: fontsize=18: x=w-tw-10:y=h-th-10`,
+      // "-filter:v",
+      // `fps=10,crop=${req.body.crop.value}`,
       "-lossless",
       "1",
       // `-metadata`, `artist="2010"`,
