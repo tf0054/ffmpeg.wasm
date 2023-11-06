@@ -127,10 +127,6 @@ fastify.post(
       return Promise.race([promise, timerPromise]);
     }
 
-    // //@ts-ignore
-    // const artistObj = await getOneShotArtistName('_' + req.body.address.value);
-    // if (!artistObj) throw new createError.BadRequest('No artist found');
-
     const ffmpeg = await FFmpeg.create({
       core: "@ffmpeg.wasm/core-st",
       log: true,
@@ -190,8 +186,6 @@ fastify.post(
         `[0]fps=10,crop=${req.body.crop.value}[vm];` +
         `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
       // `,drawtext=:text='oneshot.tokyo': fontcolor=white@0.5: fontsize=18: x=w-tw-10:y=h-th-10`,
-      // "-filter:v",
-      // `fps=10,crop=${req.body.crop.value}`,
       "-lossless",
       "1",
       // `-metadata`, `artist="2010"`,
@@ -294,39 +288,115 @@ fastify.post(
 
     const width = parseInt(req.body.crop.value.split(":")[0]);
 
-    // joinImages(mergeTargets.slice(0, 10), {
-    joinImages(mergeTargets, {
-      direction: "horizontal",
-      offset: -1 * (width / 2),
-    }).then(async (img) => {
-      const buff = await img.png().toBuffer();
-      const metadata = await img.metadata();
-      if (metadata.width && metadata.height) {
-        const p = width / metadata.width;
-        sharp(buff)
-          .withMetadata({
-            exif: {
-              IFD0: {
-                ImageDescription: "[123]",
-              },
-            },
-          })
-          .resize(
-            Math.round(p * metadata.width),
-            Math.round(p * metadata.height),
-          )
-          .toFile(`tmp/${folderName}/out.webp`);
-        console.log("joined");
-      }
+    const sharpnessP = Promise.all(occulResAry).then((v) => {
+      const resStr = JSON.stringify(v);
+      fs.writeFileSync(`tmp/${folderName}/sharpness.json`, resStr);
+      return resStr;
     });
+
+    const composeReelsImages = async (mergeTargets: Buffer[]) => {
+      const halfWidth = width / 2;
+      // ****@
+      await joinImages(mergeTargets, {
+        direction: "horizontal",
+        offset: -1 * halfWidth,
+      }).then(async (img) => {
+        const buff = await img.png().toBuffer();
+        const metadata = await img.metadata();
+        if (metadata.width && metadata.height) {
+          const p = width / metadata.width;
+          const sharpness = await sharpnessP;
+          await sharp(buff)
+            .withMetadata({
+              exif: {
+                IFD0: {
+                  ImageDescription: sharpness,
+                },
+              },
+            })
+            .resize(
+              Math.round(p * metadata.width),
+              Math.round(p * metadata.height),
+            )
+            .toFile(`tmp/${folderName}/out.webp`);
+          console.log("joined");
+        }
+      });
+
+      // *@***
+      const reel = fs.readFileSync(`tmp/${folderName}/out.webp`);
+      const reelMeta = await sharp(reel).metadata();
+
+      try {
+        for (let i = 2; i < mergeTargets.length; i++) {
+          let pre = mergeTargets.slice(0, i);
+          let pst = mergeTargets.slice(i, mergeTargets.length);
+          // console.log(`started pre ${i}`, pre);
+          const preBuf = joinImages(pre, {
+            direction: "horizontal",
+            offset: -1 * halfWidth,
+          }).then((img) => {
+            // img.toFile(`tmp/${folderName}/out2-${i}pre.webp`);
+            return img.webp({ lossless: true }).toBuffer();
+          });
+          // console.log(`started pst ${i}`, pst);
+          const pstBuf = joinImages(pst, {
+            direction: "horizontal",
+            offset: -1 * halfWidth,
+          }).then((img) => {
+            // img.toFile(`tmp/${folderName}/out2-${i}pst.webp`);
+            return img.webp({ lossless: true }).toBuffer();
+          });
+          // console.log("kk", preBuf, pstBuf, "jj");
+          joinImages(await Promise.all([preBuf, pstBuf]), {
+            direction: "horizontal",
+          }).then(async (img) => {
+            const meta = await img.metadata();
+            if (meta.width && meta.height && reelMeta.height)
+              img
+                .extract({
+                  left: 0,
+                  top: 0,
+                  width: meta.width - reelMeta.height / 2,
+                  height: meta.height,
+                })
+                .toFile(`tmp/${folderName}/out2-${i}.webp`)
+                .then((v) => {
+                  console.log(`tmp/${folderName}/out2-${i}.webp`);
+                });
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      // @****
+      const firstBuf = await sharp(mergeTargets[0])
+        .resize({ height: reelMeta.height })
+        .toBuffer();
+      joinImages([firstBuf, await sharp(reel).toBuffer()], {
+        direction: "horizontal",
+      }).then(async (img) => {
+        const metadata = await img.metadata();
+        if (metadata.width && metadata.height && reelMeta.height)
+          img
+            .extract({
+              left: 0,
+              top: 0,
+              width: metadata.width - reelMeta.height / 2,
+              height: metadata.height,
+            })
+            .toFile(`tmp/${folderName}/out3.webp`)
+            .then((v) => {
+              console.log(`tmp/${folderName}/out3.webp`);
+            });
+      });
+    };
+    composeReelsImages(mergeTargets);
 
     if (ffmpeg.exit("kill")) {
       console.log("ffmpeg: killed");
     }
-
-    Promise.all(occulResAry).then((v) => {
-      fs.writeFileSync(`tmp/${folderName}/sharpness.json`, JSON.stringify(v));
-    });
 
     let output = {
       name: `outputs.webp`,
@@ -349,6 +419,18 @@ fastify.get(
   function (req, reply) {
     const { folderId } = req.params;
     const content = fs.readFileSync(`tmp/${folderId}/sharpness.json`);
+    reply.send(content);
+  },
+);
+
+fastify.get(
+  "/op/ffmpeg/video/:folderId/:filename",
+  {
+    schema: {},
+  },
+  function (req, reply) {
+    const { folderId, filename } = req.params;
+    const content = fs.readFileSync(`tmp/${folderId}/${filename}`);
     reply.send(content);
   },
 );
