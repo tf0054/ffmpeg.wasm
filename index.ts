@@ -296,6 +296,9 @@ fastify.post(
 
     const composeReelsImages = async (mergeTargets: Buffer[]) => {
       const halfWidth = width / 2;
+      const firstReelFilename = `tmp/${folderName}/reel-${mergeTargets.length
+        .toString()
+        .padStart(3, "0")}.webp`;
       // ****@
       await joinImages(mergeTargets, {
         direction: "horizontal",
@@ -314,17 +317,16 @@ fastify.post(
                 },
               },
             })
-            .resize(
-              Math.round(p * metadata.width),
-              Math.round(p * metadata.height),
-            )
-            .toFile(`tmp/${folderName}/out.webp`);
-          console.log("joined");
+            .resize({ height: Math.round(p * metadata.height) })
+            .toFile(firstReelFilename)
+            .then((v) => {
+              console.log(firstReelFilename);
+            });
         }
       });
 
       // *@***
-      const reel = fs.readFileSync(`tmp/${folderName}/out.webp`);
+      const reel = fs.readFileSync(firstReelFilename);
       const reelMeta = await sharp(reel).metadata();
 
       try {
@@ -335,23 +337,35 @@ fastify.post(
           const preBuf = joinImages(pre, {
             direction: "horizontal",
             offset: -1 * halfWidth,
-          }).then((img) => {
+          }).then(async (img) => {
+            const buff = await img.png().toBuffer();
             // img.toFile(`tmp/${folderName}/out2-${i}pre.webp`);
-            return img.webp({ lossless: true }).toBuffer();
+            return sharp(buff)
+              .resize({ height: reelMeta.height })
+              .webp({ lossless: true })
+              .toBuffer();
           });
           // console.log(`started pst ${i}`, pst);
           const pstBuf = joinImages(pst, {
             direction: "horizontal",
             offset: -1 * halfWidth,
-          }).then((img) => {
+          }).then(async (img) => {
+            const buff = await img.png().toBuffer();
             // img.toFile(`tmp/${folderName}/out2-${i}pst.webp`);
-            return img.webp({ lossless: true }).toBuffer();
+            return sharp(buff)
+              .resize({ height: reelMeta.height })
+              .webp({ lossless: true })
+              .toBuffer();
           });
           // console.log("kk", preBuf, pstBuf, "jj");
           joinImages(await Promise.all([preBuf, pstBuf]), {
             direction: "horizontal",
           }).then(async (img) => {
             const meta = await img.metadata();
+            const filename = `tmp/${folderName}/reel-${i
+              .toString()
+              .padStart(3, "0")}.webp`;
+            // console.log(JSON.stringify(meta), JSON.stringify(reelMeta));
             if (meta.width && meta.height && reelMeta.height)
               img
                 .extract({
@@ -360,9 +374,10 @@ fastify.post(
                   width: meta.width - reelMeta.height / 2,
                   height: meta.height,
                 })
-                .toFile(`tmp/${folderName}/out2-${i}.webp`)
+                // .resize({ height: reelMeta.height })
+                .toFile(filename)
                 .then((v) => {
-                  console.log(`tmp/${folderName}/out2-${i}.webp`);
+                  console.log(filename);
                 });
           });
         }
@@ -378,6 +393,7 @@ fastify.post(
         direction: "horizontal",
       }).then(async (img) => {
         const metadata = await img.metadata();
+        const filename = `tmp/${folderName}/reel-001.webp`;
         if (metadata.width && metadata.height && reelMeta.height)
           img
             .extract({
@@ -386,9 +402,9 @@ fastify.post(
               width: metadata.width - reelMeta.height / 2,
               height: metadata.height,
             })
-            .toFile(`tmp/${folderName}/out3.webp`)
+            .toFile(filename)
             .then((v) => {
-              console.log(`tmp/${folderName}/out3.webp`);
+              console.log(filename);
             });
       });
     };
