@@ -24,6 +24,7 @@ interface BodyType {
 }
 
 const fastify = Fastify({
+  // http2: true,
   connectionTimeout: 3000,
   logger: true,
 }).withTypeProvider<JsonSchemaToTsProvider>();
@@ -292,11 +293,23 @@ fastify.post(
     const sharpnessP = Promise.all(occulResAry).then((v) => {
       const resStr = JSON.stringify(v);
       fs.writeFileSync(`tmp/${folderName}/sharpness.json`, resStr);
-      return resStr;
+      return v;
     });
 
     const composeReelsImages = async (mergeTargets: Buffer[]) => {
       const halfWidth = width / 2;
+      const sharpness = await sharpnessP;
+
+      const funcExif = (v: object) => {
+        return {
+          exif: {
+            IFD0: {
+              ImageDescription: JSON.stringify(v),
+            },
+          },
+        };
+      };
+
       const firstReelFilename = `tmp/${folderName}/reel-${mergeTargets.length
         .toString()
         .padStart(3, "0")}.webp`;
@@ -309,15 +322,12 @@ fastify.post(
         const metadata = await img.metadata();
         if (metadata.width && metadata.height) {
           const p = width / metadata.width;
-          const sharpness = await sharpnessP;
           await sharp(buff)
-            .withMetadata({
-              exif: {
-                IFD0: {
-                  ImageDescription: sharpness,
-                },
-              },
-            })
+            .withMetadata(
+              funcExif({
+                sharpness: sharpness[mergeTargets.length - 1],
+              }),
+            )
             .resize({ height: Math.round(p * metadata.height) })
             .toFile(firstReelFilename)
             .then((v) => {
@@ -329,7 +339,6 @@ fastify.post(
       // *@***
       const reel = fs.readFileSync(firstReelFilename);
       const reelMeta = await sharp(reel).metadata();
-
       try {
         for (let i = 2; i < mergeTargets.length; i++) {
           let pre = mergeTargets.slice(0, i);
@@ -375,7 +384,11 @@ fastify.post(
                   width: meta.width - reelMeta.height / 2,
                   height: meta.height,
                 })
-                // .resize({ height: reelMeta.height })
+                .withMetadata(
+                  funcExif({
+                    sharpness: sharpness[i - 1],
+                  }),
+                )
                 .toFile(filename)
                 .then((v) => {
                   console.log(filename);
@@ -387,10 +400,10 @@ fastify.post(
       }
 
       // @****
-      const firstBuf = await sharp(mergeTargets[0])
+      const firstBuf = sharp(mergeTargets[0])
         .resize({ height: reelMeta.height })
         .toBuffer();
-      joinImages([firstBuf, await sharp(reel).toBuffer()], {
+      joinImages(await Promise.all([firstBuf, sharp(reel).toBuffer()]), {
         direction: "horizontal",
       }).then(async (img) => {
         const metadata = await img.metadata();
@@ -403,6 +416,12 @@ fastify.post(
               width: metadata.width - reelMeta.height / 2,
               height: metadata.height,
             })
+            .withMetadata(
+              funcExif({
+                sharpness_all: sharpness,
+                sharpness: sharpness[0],
+              }),
+            )
             .toFile(filename)
             .then((v) => {
               console.log(filename);
