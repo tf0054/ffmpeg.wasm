@@ -11,8 +11,11 @@ import { FFmpeg } from "@ffmpeg.wasm/main";
 import joinImages from "join-images";
 import sharp from "sharp";
 import Occul from "./occuljs/Occul";
+import { EventEmitter, on } from "events";
 
 import { MultipartFile } from "@fastify/multipart";
+import { FastifySSEPlugin } from "fastify-sse-v2";
+
 import createError from "http-errors";
 
 // const path = require("path");
@@ -42,6 +45,33 @@ fastify.register(fastifyMultipart, {
   limits: {
     fileSize: 10 * 1000 * 1000,
   },
+});
+
+const target = new EventEmitter();
+
+(async () => {
+  for await (const [event] of on(target, "foo")) {
+    console.log(
+      `${new Date().toISOString()} イベントが発生しました。${JSON.stringify(
+        event,
+      )}`,
+    );
+  }
+})();
+
+fastify.register(FastifySSEPlugin);
+
+fastify.get("/sse", function (req, res) {
+  res.sse(
+    (async function* () {
+      for await (const [event] of on(target, "foo")) {
+        yield {
+          event: event.name,
+          data: JSON.stringify(event),
+        };
+      }
+    })(),
+  );
 });
 
 fastify.post(
@@ -79,6 +109,8 @@ fastify.post(
     if (!_file) throw new createError.BadRequest("No file found");
     if (_file.filename.indexOf("/") > 0)
       throw new createError.BadRequest("Bad filename");
+
+    target.emit("foo", "Preparing 0");
 
     const asyncCallWithTimeout = async (asyncPromise, timeLimit) => {
       let timeoutHandle;
@@ -128,6 +160,7 @@ fastify.post(
       return Promise.race([promise, timerPromise]);
     }
 
+    target.emit("foo", "Preparing 1");
     const ffmpeg = await FFmpeg.create({
       core: "@ffmpeg.wasm/core-st",
       log: true,
@@ -172,6 +205,7 @@ fastify.post(
     //   "_" + _file.filename,
     // );
 
+    target.emit("foo", "Processing 0");
     // https://ffmpeg.org/ffmpeg-codecs.html#Options-33
     await ffmpeg.run(
       "-i",
@@ -277,6 +311,8 @@ fastify.post(
       // 'comment_project="TEST PROJECT"',
       "outputs.webp",
     ];
+
+    target.emit("foo", "Processing 1");
     // console.debug("params for grid creation", paramAry);
     await ffmpeg.run(...paramAry);
 
@@ -310,6 +346,7 @@ fastify.post(
         };
       };
 
+      target.emit("foo", "Done");
       const firstReelFilename = `tmp/${folderName}/reel-${mergeTargets.length
         .toString()
         .padStart(3, "0")}.webp`;
