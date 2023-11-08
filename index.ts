@@ -145,6 +145,22 @@ fastify.get(
   },
 );
 
+// fastify.get(
+//   "/shutdown",
+//   {
+//     schema: {},
+//   },
+//   function (req, reply) {
+//     fs.writeFileSync(
+//       "restarted.ts",
+//       `console.log("${new Date().toISOString()}")`,
+//     );
+
+//     // process.exit();
+//     return "bye";
+//   },
+// );
+
 // Run the server!
 fastify.listen({ port: 3000 }, function (err, address) {
   if (err) {

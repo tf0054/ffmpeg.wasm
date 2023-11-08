@@ -5,10 +5,11 @@ import { FFmpeg } from "@ffmpeg.wasm/main";
 import joinImages from "join-images";
 import sharp from "sharp";
 import Occul from "./occuljs/Occul";
+import { restart } from "./util";
 
 export const doFfmpeg = async (req, _file, folderName, target) => {
   target.emit("foo", "Preparing 1");
-  const ffmpeg = await FFmpeg.create({
+  let ffmpeg = await FFmpeg.create({
     core: "@ffmpeg.wasm/core-st",
     log: true,
     logger: console.log,
@@ -175,7 +176,6 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
       };
     };
 
-    target.emit("foo", "Done");
     const firstReelFilename = `tmp/${folderName}/reel-${mergeTargets.length
       .toString()
       .padStart(3, "0")}.webp`;
@@ -205,6 +205,7 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
     // *@***
     const reel = fs.readFileSync(firstReelFilename);
     const reelMeta = await sharp(reel).metadata();
+    let promises: Promise<void>[] = [];
     try {
       for (let i = 2; i < mergeTargets.length; i++) {
         let pre = mergeTargets.slice(0, i);
@@ -234,7 +235,7 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
             .toBuffer();
         });
         // console.log("kk", preBuf, pstBuf, "jj");
-        joinImages(await Promise.all([preBuf, pstBuf]), {
+        let a = joinImages(await Promise.all([preBuf, pstBuf]), {
           direction: "horizontal",
         }).then(async (img) => {
           const meta = await img.metadata();
@@ -260,16 +261,18 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
                 console.log(filename);
               });
         });
+        promises.push(a);
       }
     } catch (e) {
       console.error(e);
     }
+    await Promise.all(promises);
 
     // @****
     const firstBuf = sharp(mergeTargets[0])
       .resize({ height: reelMeta.height })
       .toBuffer();
-    joinImages(await Promise.all([firstBuf, sharp(reel).toBuffer()]), {
+    await joinImages(await Promise.all([firstBuf, sharp(reel).toBuffer()]), {
       direction: "horizontal",
     }).then(async (img) => {
       const metadata = await img.metadata();
@@ -294,7 +297,6 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
           });
     });
   };
-  composeReelsImages(mergeTargets);
 
   if (ffmpeg.exit("kill")) {
     console.log("ffmpeg: killed");
@@ -311,12 +313,18 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
 
   const resultJson = superjson.stringify(resJson);
 
+  composeReelsImages(mergeTargets).then(() => {
+    restart();
+  });
+
   fs.writeFileSync(`tmp/${folderName}/${"result.json"}`, resultJson);
 
   target.emit(
     "foo",
     JSON.stringify({ id: folderName, filename: "result.json" }),
   );
+
+  target.emit("foo", "Done");
 
   return resultJson;
 };
