@@ -11,7 +11,7 @@ import * as fs from "fs";
 
 import createError from "http-errors";
 
-import { doFfmpeg } from "./ffmpeg";
+import { doPhoto, doFfmpeg } from "./ffmpeg";
 
 interface BodyType {
   name: string;
@@ -72,6 +72,50 @@ fastify.get("/sse", function (req, res) {
     })(),
   );
 });
+
+fastify.post(
+  "/op/ffmpeg/photo",
+  {
+    schema: {
+      description: "Endpoint to update claiming record",
+      tags: ["Qr-claims"],
+      headers: {
+        type: "object",
+        properties: {
+          "user-agent": { type: "string" },
+        },
+        required: ["user-agent"],
+      },
+      body: {
+        type: "object",
+        // properties: {
+        //   'address': {value: { type: 'string' }},
+        // },
+        required: ["file"],
+      },
+      response: {
+        204: { type: "object" },
+      },
+      security: [
+        {
+          authorization: [],
+        },
+      ],
+    },
+  },
+  async (req, res) => {
+    const _file = req.body.file as MultipartFile;
+    if (!_file) throw new createError.BadRequest("No file found");
+    if (_file.filename.indexOf("/") > 0)
+      throw new createError.BadRequest("Bad filename");
+
+    const buffer = await doPhoto(_file);
+
+    res.type("image/webp"); // if you don't set the content, the image would be downloaded by browser instead of viewed
+    //@ts-ignore
+    res.send(buffer);
+  },
+);
 
 fastify.post(
   "/op/ffmpeg/video",
