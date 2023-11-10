@@ -18,6 +18,7 @@
     "verbose": true
   },
   "dependencies": {
+    "@fastify/compress": "^6.5.0",
     "@fastify/cookie": "^8.1.0",
     "@fastify/cors": "^8.4.0",
     "@fastify/csrf-protection": "^5.1.0",

@@ -40,6 +40,27 @@ fastify.register(fastifyMultipart, {
   },
 });
 
+fastify.register(FastifySSEPlugin);
+
+fastify.register(import("@fastify/compress"), { global: false });
+
+//
+fastify.register(function (fastify, __, done) {
+  fastify.get(
+    "/op/ffmpeg/video/:folderId/:filename",
+    {
+      schema: {},
+    },
+    function (req, res) {
+      const { folderId, filename } = req.params;
+
+      res.compress(fs.createReadStream(`tmp/${folderId}/${filename}`));
+    },
+  );
+
+  done();
+});
+
 const target = new EventEmitter();
 
 (async () => {
@@ -52,13 +73,9 @@ const target = new EventEmitter();
   }
 })();
 
-(async () => {
-  setInterval(() => {
-    target.emit("foo", `Tick ${new Date().toISOString()}`);
-  }, 1000);
-})();
-
-fastify.register(FastifySSEPlugin);
+setInterval(() => {
+  target.emit("foo", `Tick ${new Date().toISOString()}`);
+}, 1000);
 
 fastify.get("/sse", function (req, res) {
   res.sse(
@@ -173,18 +190,6 @@ fastify.get(
   function (req, reply) {
     const { folderId } = req.params;
     const content = fs.readFileSync(`tmp/${folderId}/sharpness.json`);
-    reply.send(content);
-  },
-);
-
-fastify.get(
-  "/op/ffmpeg/video/:folderId/:filename",
-  {
-    schema: {},
-  },
-  function (req, reply) {
-    const { folderId, filename } = req.params;
-    const content = fs.readFileSync(`tmp/${folderId}/${filename}`);
     reply.send(content);
   },
 );
