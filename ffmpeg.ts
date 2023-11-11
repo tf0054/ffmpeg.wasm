@@ -33,8 +33,8 @@ export const doPhoto = async (_file) => {
     "-filter_complex",
     `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
       `[0]crop=w=min(min(iw\\,ih)\\,500):h=min(min(iw\\,ih)\\,500),scale=500:500,setsar=1,` +
-      `drawbox=y=ih/PHI:color=black@0.4:width=iw:height=48:t=fill,` +
-      `drawtext=fontfile=arial.ttf:text='vid1':fontsize=20:fontcolor=white:fontsize=24:x=(w-tw)/2:y=(h/PHI)+th[vm];` +
+      `drawbox=y=ih-h-3:color=black@0.4:width=iw:height=25:t=fill,` +
+      `drawtext=fontfile=arial.ttf:text='OneShot':fontsize=8:fontcolor=white:fontsize=24:x=(w-tw)/2:y=h-th-5[vm];` +
       `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
     "cropped.webp",
   );
