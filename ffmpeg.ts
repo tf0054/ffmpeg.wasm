@@ -7,6 +7,8 @@ import sharp from "sharp";
 import Occul from "./occuljs/Occul";
 import { restart } from "./util";
 
+const logoFilename = "logo.png";
+
 export const doPhoto = async (_file) => {
   const ffmpeg = await FFmpeg.create({
     core: "@ffmpeg.wasm/core-st",
@@ -18,13 +20,19 @@ export const doPhoto = async (_file) => {
 
   // Wrote
   ffmpeg.fs.writeFile(_file.filename, buf);
+  ffmpeg.fs.writeFile(logoFilename, fs.readFileSync(logoFilename));
+
   console.log("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
   // Processed
   await ffmpeg.run(
     "-i",
     _file.filename,
-    "-vf",
-    "crop=w='min(min(iw,ih),500)':h='min(min(iw,ih),500)',scale=500:500,setsar=1",
+    "-i",
+    logoFilename,
+    "-filter_complex",
+    `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
+      `[0]crop=w=min(min(iw\\,ih)\\,500):h=min(min(iw\\,ih)\\,500),scale=500:500,setsar=1[vm];` +
+      `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
     "cropped.webp",
   );
   console.log("ffmpeg.fs.run", ffmpeg.fs.readdir("/"));
@@ -65,7 +73,6 @@ export const doFfmpeg = async (
   ffmpeg.fs.writeFile(_file.filename, buf);
 
   // Write the logo on ffpmeg world
-  const logoFilename = "logo.png";
   ffmpeg.fs.writeFile(logoFilename, fs.readFileSync(logoFilename));
   console.debug("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
   // Processed
