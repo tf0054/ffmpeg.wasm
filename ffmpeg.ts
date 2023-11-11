@@ -21,7 +21,6 @@ export const doPhoto = async (_file) => {
   // Wrote
   ffmpeg.fs.writeFile(_file.filename, buf);
   ffmpeg.fs.writeFile(logoFilename, fs.readFileSync(logoFilename));
-  ffmpeg.fs.writeFile("arial.ttf", fs.readFileSync("data/arial.ttf"));
 
   console.log("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
   // Processed
@@ -83,6 +82,8 @@ export const doFfmpeg = async (
   const orgBuf = ffmpeg.fs.readFile(_file.filename);
   fs.writeFileSync(`tmp/${folderName}/${_file.filename}`, orgBuf);
 
+  ffmpeg.fs.writeFile("arial.ttf", fs.readFileSync("data/arial.ttf"));
+
   target.emit("foo", "Processing 0");
   // https://ffmpeg.org/ffmpeg-codecs.html#Options-33
   await ffmpeg.run(
@@ -97,7 +98,8 @@ export const doFfmpeg = async (
     "-filter_complex",
     `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
       // `[0]fps=10,crop=${req.body.crop.value}[vm];` +
-      `[0]trim=start=00:00:00.00:end=00:00:${recMilSecStr},fps=10,crop=${params.crop}[vm];` +
+      `[0]trim=start=00:00:00.00:end=00:00:${recMilSecStr},fps=10,crop=${params.crop},` +
+      `drawtext=fontfile=arial.ttf:text='OneShot\\: \\%{pts\\:hms}':fontsize=8:fontcolor=white:fontsize=24:x=(w-tw)/2:y=h-th-5[vm];` +
       `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
     // `,drawtext=:text='oneshot.tokyo': fontcolor=white@0.5: fontsize=18: x=w-tw-10:y=h-th-10`,
     "-lossless",
