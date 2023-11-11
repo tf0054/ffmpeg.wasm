@@ -21,6 +21,7 @@ export const doPhoto = async (_file) => {
   // Wrote
   ffmpeg.fs.writeFile(_file.filename, buf);
   ffmpeg.fs.writeFile(logoFilename, fs.readFileSync(logoFilename));
+  ffmpeg.fs.writeFile("arial.ttf", fs.readFileSync("data/arial.ttf"));
 
   console.log("ffmpeg.fs.ls", ffmpeg.fs.readdir("/"));
   // Processed
@@ -31,7 +32,9 @@ export const doPhoto = async (_file) => {
     logoFilename,
     "-filter_complex",
     `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
-      `[0]crop=w=min(min(iw\\,ih)\\,500):h=min(min(iw\\,ih)\\,500),scale=500:500,setsar=1[vm];` +
+      `[0]crop=w=min(min(iw\\,ih)\\,500):h=min(min(iw\\,ih)\\,500),scale=500:500,setsar=1,` +
+      `drawbox=y=ih/PHI:color=black@0.4:width=iw:height=48:t=fill,` +
+      `drawtext=fontfile=arial.ttf:text='vid1':fontsize=20:fontcolor=white:fontsize=24:x=(w-tw)/2:y=(h/PHI)+th[vm];` +
       `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
     "cropped.webp",
   );
