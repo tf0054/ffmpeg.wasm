@@ -75,7 +75,7 @@ const target = new EventEmitter();
 
 setInterval(() => {
   target.emit("foo", `Tick ${new Date().toISOString()}`);
-}, 1000);
+}, 3000);
 
 fastify.get("/sse", function (req, res) {
   res.sse(
@@ -152,7 +152,7 @@ fastify.post(
         // properties: {
         //   'address': { type: 'string' },
         // },
-        required: ["crop", "sec", "file"],
+        required: ["crop", "milsec", "file"],
       },
       // response: {
       //   204: { type: 'object' },
@@ -176,7 +176,12 @@ fastify.post(
     const folderName = new Date().toISOString();
     fs.mkdirSync(`tmp/${folderName}`);
 
-    doFfmpeg(req, _file, folderName, target);
+    doFfmpeg(
+      { milsec: req.body.milsec.value, crop: req.body.crop.value },
+      _file,
+      folderName,
+      target,
+    );
 
     return { id: folderName };
   },

@@ -35,8 +35,18 @@ export const doPhoto = async (_file) => {
   return outbuf;
 };
 
-export const doFfmpeg = async (req, _file, folderName, target) => {
+export const doFfmpeg = async (
+  params: { crop: string; milsec: string },
+  _file,
+  folderName,
+  target,
+) => {
+  const recMilSrc = Math.floor(parseInt(params.milsec) * 100) / 100 / 1000;
+  let recMilSecStr =
+    recMilSrc > 15 ? "15.00" : `${recMilSrc.toFixed(2)}`.padStart(5, "0");
+  // console.log("recMilSecStr", recMilSrc, recMilSecStr); // 01.80
   target.emit("foo", "Preparing 1");
+
   let ffmpeg = await FFmpeg.create({
     core: "@ffmpeg.wasm/core-st",
     log: true,
@@ -48,7 +58,7 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
   // console.log("crop", req.body.crop);
   fs.writeFileSync(
     `tmp/${folderName}/${"crop.txt"}`,
-    JSON.stringify(req.body.crop.value),
+    JSON.stringify(params.crop),
   );
 
   // Write the video on ffpmeg world
@@ -77,7 +87,7 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
     "-filter_complex",
     `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
       // `[0]fps=10,crop=${req.body.crop.value}[vm];` +
-      `[0]trim=start=00:00:00.00:end=00:00:01.80,fps=10,crop=${req.body.crop.value}[vm];` +
+      `[0]trim=start=00:00:00.00:end=00:00:${recMilSecStr},fps=10,crop=${params.crop}[vm];` +
       `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
     // `,drawtext=:text='oneshot.tokyo': fontcolor=white@0.5: fontsize=18: x=w-tw-10:y=h-th-10`,
     "-lossless",
@@ -182,7 +192,7 @@ export const doFfmpeg = async (req, _file, folderName, target) => {
   //
   fs.writeFileSync(`tmp/${folderName}/${gridFilename}`, buffer);
 
-  const width = parseInt(req.body.crop.value.split(":")[0]);
+  const width = parseInt(params.crop.split(":")[0]);
 
   const sharpnessP = Promise.all(occulResAry).then((v) => {
     const resStr = JSON.stringify(v);
