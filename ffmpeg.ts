@@ -98,7 +98,7 @@ export const doFfmpeg = async (
     "libwebp",
     "-filter_complex",
     `[1]colorchannelmixer=aa=0.5,scale=iw*40/100:-1[wm];` +
-      `[0]trim=start=00:00:00.00:end=00:00:${recMilSecStr},fps=10,crop=${params.crop},` +
+      `[0]trim=start=00:00:00.00:end=00:00:${recMilSecStr},fps=11,crop=${params.crop},` +
       `drawbox=y=ih-h-3:color=black@0.4:width=iw:height=25:t=fill,` +
       `drawtext=fontfile=arial.ttf:text='OneShot\\: \\%{pts\\:hms}':fontsize=8:fontcolor=white:fontsize=24:x=(w-tw)/2:y=h-th-5[vm];` +
       `[vm][wm]overlay=x=(main_w-overlay_w-5):y=(main_h-overlay_h-5)/(main_h-overlay_h-5)`,
@@ -226,7 +226,7 @@ export const doFfmpeg = async (
       };
     };
 
-    const firstReelFilename = `tmp/${folderName}/reel-${mergeTargets.length
+    const firstReelFilename = `tmp/${folderName}/reel_${mergeTargets.length
       .toString()
       .padStart(3, "0")}.webp`;
     // ****@
@@ -289,7 +289,7 @@ export const doFfmpeg = async (
           direction: "horizontal",
         }).then(async (img) => {
           const meta = await img.metadata();
-          const filename = `tmp/${folderName}/reel-${i
+          const filename = `tmp/${folderName}/reel_${i
             .toString()
             .padStart(3, "0")}.webp`;
           // console.log(JSON.stringify(meta), JSON.stringify(reelMeta));
@@ -298,7 +298,7 @@ export const doFfmpeg = async (
               .extract({
                 left: 0,
                 top: 0,
-                width: meta.width - reelMeta.height / 2,
+                width: Math.round(meta.width - reelMeta.height / 2),
                 height: meta.height,
               })
               .withMetadata(
@@ -326,13 +326,13 @@ export const doFfmpeg = async (
       direction: "horizontal",
     }).then(async (img) => {
       const metadata = await img.metadata();
-      const filename = `tmp/${folderName}/reel-001.webp`;
+      const filename = `tmp/${folderName}/reel_001.webp`;
       if (metadata.width && metadata.height && reelMeta.height)
         img
           .extract({
             left: 0,
             top: 0,
-            width: metadata.width - reelMeta.height / 2,
+            width: Math.round(metadata.width - reelMeta.height / 2),
             height: metadata.height,
           })
           .withMetadata(
